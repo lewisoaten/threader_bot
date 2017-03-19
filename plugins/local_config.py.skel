@@ -1,0 +1,3 @@
+# local config file used for overriding default config values
+# to use copy this file to local_config.py then you can overrid
+# any config variables in the new file
