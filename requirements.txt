@@ -1,1 +1,1 @@
-slackclient = 1.0.5
+rtmbot = 0.4.0
