@@ -44,10 +44,17 @@ class ThreaderPlugin(Plugin):
             logging.debug("This is the wrong type of message for me to deal with")
             return
 
+        # Setup the defaults with our bot id and bot alias data in config
+        username = config.BOT_ALIAS[config.BOT_ID]['username']
+        icon_url = config.BOT_ALIAS[config.BOT_ID]['icon_url']
+
         # Ignore messages from this bot
         if data['bot_id'] == config.BOT_ID:
             logging.debug("Ignoring message from ourselves")
             return
+        elif data['bot_id'] in config.BOT_ALIAS:  # For other bots, assign an alias if we have one configured
+            username = config.BOT_ALIAS[data['bot_id']]['username']
+            icon_url = config.BOT_ALIAS[data['bot_id']]['icon_url']
 
         m = self.regex.search(json.dumps(data))
 
@@ -67,9 +74,9 @@ class ThreaderPlugin(Plugin):
                 text=data['text'],
                 attachments=data['attachments'],
                 thread_ts=self.threads[thread_key]['ts'],
-                reply_broadcast=self.threads[thread_key]['updated'] < time.time() - config.BROADCAST_AFTER_SECONDS  # broadcast if updated over 60 seconds ago
-                # icon_url=user['bot']['icons']['image_48'],
-                # username=user['bot']['name']
+                reply_broadcast=self.threads[thread_key]['updated'] < time.time() - config.BROADCAST_AFTER_SECONDS,  # broadcast if updated over 60 seconds ago
+                icon_url=icon_url,
+                username=username
             )
             logging.debug("Just posted a threaded message, got the response: %s" % res)
 
@@ -80,9 +87,9 @@ class ThreaderPlugin(Plugin):
                 "chat.postMessage",
                 channel=config.POST_CHANNEL,
                 text=data['text'],
-                attachments=data['attachments']
-                # icon_url=user['bot']['icons']['image_48'],
-                # username=user['bot']['name']
+                attachments=data['attachments'],
+                icon_url=icon_url,
+                username=username
             )
             logging.debug("Just posted a root message, got the response: %s" % res)
 
