@@ -1,3 +1,5 @@
 rtmbot.log
 rtmbot.conf
 local_config.py
+*.p
+*.pyc

@@ -8,6 +8,7 @@ import re
 import time
 import config
 import json
+import cPickle as pickle
 
 
 class ThreaderPlugin(Plugin):
@@ -16,6 +17,11 @@ class ThreaderPlugin(Plugin):
         Plugin.__init__(self, name, slack_client, plugin_config)
         self.regex = re.compile(config.SEARCH_REGEX, re.IGNORECASE)
         self.threads = dict()
+        try:
+            with open(config.PICKLE_FILE, 'rb') as handle:
+                self.threads = pickle.load(handle)
+        except Exception as e:
+            logging.error("Cloud not load pickle file at location %s" % config.PICKLE_FILE)
 
         # Find bot id for later
         auth = self.slack_client.api_call(
@@ -23,16 +29,6 @@ class ThreaderPlugin(Plugin):
         )
         logging.debug("Auth info: %s" % auth)
         self.user = auth['user_id']
-
-        # Find our posting channel in channel list and store id for later
-        channels = self.slack_client.api_call(
-            "channels.list"
-        )
-        for channel in channels['channels']:
-            if channel['name'] == config.POST_CHANNEL:
-                self.channel = channel['id']
-        if self.channel is None:
-            logging.error('Can\'t find channel: %s' % config.POST_CHANNEL)
 
     def catch_all(self, data):
         logging.debug("Entered catch_all() with: %s" % data)
@@ -55,26 +51,19 @@ class ThreaderPlugin(Plugin):
 
         m = self.regex.search(json.dumps(data))
 
-        # Stop function if no search key found
+        # Force thread_key to None if search key is not found so that we post the message without threading it
         if m is None:
+            thread_key = None
             logging.debug("Search string not found")
-            return
-
-        thread_key = m.group(0)
-        logging.debug("Thread key found: %s" % thread_key)
-
-        # Get the poster user info
-        # user = self.slack_client.api_call(
-        #     "bots.info",
-        #     user=data['bot_id']
-        # )
-        # logging.debug("Found user data: %s" % user)
+        else:
+            thread_key = m.group(0)
+            logging.debug("Thread key found: %s" % thread_key)
 
         if thread_key in self.threads:
             # Repost the message to the thread
             res = self.slack_client.api_call(
                 "chat.postMessage",
-                channel=self.channel,
+                channel=config.POST_CHANNEL,
                 text=data['text'],
                 attachments=data['attachments'],
                 thread_ts=self.threads[thread_key]['ts'],
@@ -82,18 +71,26 @@ class ThreaderPlugin(Plugin):
                 # icon_url=user['bot']['icons']['image_48'],
                 # username=user['bot']['name']
             )
-            logging.debug(res)
+            logging.debug("Just posted a threaded message, got the response: %s" % res)
 
             # Update timestamp for broadcasting decision
             self.threads[thread_key]['updated'] = time.time()
         else:
             res = self.slack_client.api_call(
                 "chat.postMessage",
-                channel=self.channel,
+                channel=config.POST_CHANNEL,
                 text=data['text'],
                 attachments=data['attachments']
                 # icon_url=user['bot']['icons']['image_48'],
                 # username=user['bot']['name']
             )
-            logging.debug(res)
-            self.threads[thread_key] = {'ts': res['ts'], 'updated': time.time()}
+            logging.debug("Just posted a root message, got the response: %s" % res)
+
+            if thread_key is not None:  # Don't set None as a key, else we will try to thread the next message without search_key
+                self.threads[thread_key] = {'ts': res['ts'], 'updated': time.time()}
+
+        try:
+            with open(config.PICKLE_FILE, 'wb') as handle:
+                pickle.dump(self.threads, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        except Exception as e:
+            logging.error("Cloud not load pickle file at location %s" % config.PICKLE_FILE)
