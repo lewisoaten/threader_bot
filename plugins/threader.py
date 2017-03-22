@@ -56,45 +56,56 @@ class ThreaderPlugin(Plugin):
             username = config.BOT_ALIAS[data['bot_id']]['username']
             icon_url = config.BOT_ALIAS[data['bot_id']]['icon_url']
 
-        m = self.regex.search(json.dumps(data))
+        # Find all the matches we can and produce a non-duplicated dict of them
+        it = self.regex.finditer(json.dumps(data))
+        search_keys = {match.group(0): None for match in it}
 
-        # Force thread_key to None if search key is not found so that we post the message without threading it
-        if m is None:
-            thread_key = None
-            logging.debug("Search string not found")
-        else:
-            thread_key = m.group(0)
-            logging.debug("Thread key found: %s" % thread_key)
+        # Find the intersection of self.threads and search_keys and update the search_keys with thread info
+        for intersection_key in search_keys.viewkeys() & self.threads.viewkeys():
+            search_keys[intersection_key] = self.threads[intersection_key]
 
-        if thread_key in self.threads:
-            # Repost the message to the thread
-            res = self.slack_client.api_call(
-                "chat.postMessage",
-                channel=config.POST_CHANNEL,
-                text=data['text'],
-                attachments=data['attachments'],
-                thread_ts=self.threads[thread_key]['ts'],
-                reply_broadcast=self.threads[thread_key]['updated'] < time.time() - config.BROADCAST_AFTER_SECONDS,  # broadcast if updated over 60 seconds ago
-                icon_url=icon_url,
-                username=username
-            )
-            logging.debug("Just posted a threaded message, got the response: %s" % res)
+        # Now loop over all search keys, whether they have thread data or None
+        for thread_key, thread_id in search_keys.iteritems():
+            logging.debug("Thread key found: %s with thread id: %s, last updated: %s" % thread_key, thread_id['ts'], thread_id['updated'])
 
-            # Update timestamp for broadcasting decision
-            self.threads[thread_key]['updated'] = time.time()
-        else:
-            res = self.slack_client.api_call(
-                "chat.postMessage",
-                channel=config.POST_CHANNEL,
-                text=data['text'],
-                attachments=data['attachments'],
-                icon_url=icon_url,
-                username=username
-            )
-            logging.debug("Just posted a root message, got the response: %s" % res)
+            if thread_id is None:  # None means that we have not seen this thread_key before so we should post a root message and log the thread_key
+                res = self.slack_client.api_call(
+                    "chat.postMessage",
+                    channel=config.POST_CHANNEL,
+                    text=data['text'],
+                    attachments=data['attachments'],
+                    icon_url=icon_url,
+                    username=username
+                )
+                logging.debug("Just posted a root message, got the response: %s" % res)
 
-            if thread_key is not None:  # Don't set None as a key, else we will try to thread the next message without search_key
                 self.threads[thread_key] = {'ts': res['ts'], 'updated': time.time()}
+            else:  # We have a thread for this thread_key, so lets post it in there and update the last-post time
+                res = self.slack_client.api_call(
+                    "chat.postMessage",
+                    channel=config.POST_CHANNEL,
+                    text=data['text'],
+                    attachments=data['attachments'],
+                    thread_ts=self.threads[thread_key]['ts'],
+                    reply_broadcast=self.threads[thread_key]['updated'] < time.time() - config.BROADCAST_AFTER_SECONDS,  # broadcast if updated over 60 seconds ago
+                    icon_url=icon_url,
+                    username=username
+                )
+                logging.debug("Just posted a threaded message, got the response: %s" % res)
+
+                # Update timestamp for broadcasting decision
+                self.threads[thread_key]['updated'] = time.time()
+
+        if len(search_keys) = 0:  # This mneans that we were unable to find a search_key, so just re-post to the channel
+            res = self.slack_client.api_call(
+                "chat.postMessage",
+                channel=config.POST_CHANNEL,
+                text=data['text'],
+                attachments=data['attachments'],
+                icon_url=icon_url,
+                username=username
+            )
+            logging.debug("Just posted an unkeyed message, got the response: %s" % res)
 
         try:
             with open(config.PICKLE_FILE, 'wb') as handle:
