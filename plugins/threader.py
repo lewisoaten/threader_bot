@@ -96,7 +96,7 @@ class ThreaderPlugin(Plugin):
                 # Update timestamp for broadcasting decision
                 self.threads[thread_key]['updated'] = time.time()
 
-        if len(search_keys) = 0:  # This mneans that we were unable to find a search_key, so just re-post to the channel
+        if len(search_keys) == 0:  # This mneans that we were unable to find a search_key, so just re-post to the channel
             res = self.slack_client.api_call(
                 "chat.postMessage",
                 channel=config.POST_CHANNEL,
