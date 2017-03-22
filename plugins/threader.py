@@ -66,7 +66,7 @@ class ThreaderPlugin(Plugin):
 
         # Now loop over all search keys, whether they have thread data or None
         for thread_key, thread_id in search_keys.iteritems():
-            logging.debug("Thread key found: %s with thread id: %s, last updated: %s" % thread_key, thread_id['ts'], thread_id['updated'])
+            logging.debug("Thread key found: %s with thread id: %s, last updated: %s" % (thread_key, thread_id['ts'], thread_id['updated']))
 
             if thread_id is None:  # None means that we have not seen this thread_key before so we should post a root message and log the thread_key
                 res = self.slack_client.api_call(
