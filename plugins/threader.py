@@ -24,11 +24,27 @@ class ThreaderPlugin(Plugin):
             logging.error("Cloud not load pickle file at location %s" % config.PICKLE_FILE)
 
         # Find bot id for later
-        auth = self.slack_client.api_call(
-            "auth.test"
+        channel_res = self.slack_client.api_call(
+            "channels.list"
         )
-        logging.debug("Auth info: %s" % auth)
-        self.user = auth['user_id']
+
+        groups_res = self.slack_client.api_call(
+            "groups.list"
+        )
+
+        channel = next(
+            (c for c in channel_res['channels'] if c['name_normalized'] == config.WATCH_CHANNEL),  # Try to find a channel with name
+            next(
+                (g for g in groups_res['groups'] if g['name_normalized'] == config.WATCH_CHANNEL),
+                None
+            )
+        )
+
+        if channel is not None:
+            logging.debug("Found watch channel (%s), full info: %s" % (channel['id'], channel))
+            self.watch_channel = channel['id']
+        else:
+            logging.error("Could not find watch channel (%s) in channel list: %s" % (config.WATCH_CHANNEL, res))
 
     def catch_all(self, data):
         logging.debug("Entered catch_all() with: %s" % data)
@@ -39,6 +55,11 @@ class ThreaderPlugin(Plugin):
 
         if data.get('subtype', None) != 'bot_message':
             logging.debug("This is the wrong type of message for me to deal with")
+            return
+
+        if data.get('channel', None) != self.watch_channel:
+            logging.debug("This messages channel is different to the one we are watching")
+            # logging.debug("The configured WATCH_CHANNEL (%s) does not exist" % config.WATCH_CHANNEL)
             return
 
         # Setup the defaults with our bot id and bot alias data in config
