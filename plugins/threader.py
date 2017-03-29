@@ -46,9 +46,6 @@ class ThreaderPlugin(Plugin):
         else:
             logging.error("Could not find watch channel (%s) in channel list: %s" % (config.WATCH_CHANNEL, res))
 
-    def catch_all(self, data):
-        logging.debug("Entered catch_all() with: %s" % data)
-
     def process_message(self, data):
         logging.debug("Entered process_message() with: %s" % data)
         # Make sure we can test type
