@@ -55,6 +55,8 @@ class ThreaderPlugin(Plugin):
         elif data['bot_id'] in config.BOT_ALIAS:  # For other bots, assign an alias if we have one configured
             username = config.BOT_ALIAS[data['bot_id']]['username']
             icon_url = config.BOT_ALIAS[data['bot_id']]['icon_url']
+        else:
+            logging.info("==========\nI don't recognise the bot that just posted \"%s...\", consider adding this line to the BOT_ALIAS:\n    '%s': {'username': 'BOT NAME', 'icon_url': 'BOT URL'}\n==========" % (data.get('text', data['attachments'])[:10], data['bot_id']))
 
         # Find all the matches we can and produce a non-duplicated dict of them
         it = self.regex.finditer(json.dumps(data))
@@ -73,7 +75,7 @@ class ThreaderPlugin(Plugin):
                     "chat.postMessage",
                     channel=config.POST_CHANNEL,
                     text=data['text'],
-                    attachments=data['attachments'],
+                    attachments=data.get('attachments', None),
                     icon_url=icon_url,
                     username=username
                 )
@@ -85,7 +87,7 @@ class ThreaderPlugin(Plugin):
                     "chat.postMessage",
                     channel=config.POST_CHANNEL,
                     text=data['text'],
-                    attachments=data['attachments'],
+                    attachments=data.get('attachments', None),
                     thread_ts=self.threads[thread_key]['ts'],
                     reply_broadcast=self.threads[thread_key]['updated'] < time.time() - config.BROADCAST_AFTER_SECONDS,  # broadcast if updated over 60 seconds ago
                     icon_url=icon_url,
@@ -101,7 +103,7 @@ class ThreaderPlugin(Plugin):
                 "chat.postMessage",
                 channel=config.POST_CHANNEL,
                 text=data['text'],
-                attachments=data['attachments'],
+                attachments=data.get('attachments', None),
                 icon_url=icon_url,
                 username=username
             )
