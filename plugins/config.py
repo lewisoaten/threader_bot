@@ -1,4 +1,5 @@
 SEARCH_REGEX = '(ABC-[0-9]+)'
+WATCH_CHANNEL = 'dev-integrations'
 POST_CHANNEL = 'development'
 BROADCAST_AFTER_SECONDS = 3600
 PICKLE_FILE = 'threads.p'

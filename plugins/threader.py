@@ -36,11 +36,8 @@ class ThreaderPlugin(Plugin):
     def process_message(self, data):
         logging.debug("Entered process_message() with: %s" % data)
         # Make sure we can test type
-        if 'subtype' not in data:
-            logging.debug("I can't find subtype in data")
-            return
 
-        if data['subtype'] != 'bot_message':
+        if data.get('subtype', None) != 'bot_message':
             logging.debug("This is the wrong type of message for me to deal with")
             return
 
